@@ -23,13 +23,14 @@ class Hook:
     def __call__(self, layer, inp, out):
         self.inp = inp[0]
         self.out = out
-        self.pred_res = self.pred(self.inp)
-        replacement_lookup = self.pred_res[..., None, :] == self.pred_res[..., :, None]
-        replacement_lookup.diagonal()[replacement_lookup.sum(dim=0) != 1] = False
-        replacement_lookup = replacement_lookup.to(dtype=float)
-        replacement_lookup = replacement_lookup / replacement_lookup.sum()
-        replace_indices = t.multinomial(replacement_lookup, 1)[:, 0]
-        return out[replace_indices]
+        with t.no_grad():
+            self.pred_res = self.pred(self.inp)
+            replacement_lookup = self.pred_res[..., None, :] == self.pred_res[..., :, None]
+            replacement_lookup.diagonal()[replacement_lookup.sum(dim=0) != 1] = False
+            replacement_lookup = replacement_lookup.to(dtype=float)
+            replacement_lookup = replacement_lookup / replacement_lookup.sum()
+            replace_indices = t.multinomial(replacement_lookup, 1)[:, 0]
+        return out[replace_indices.detach()]
 
     def clear(self):
         if self.handle is not None:
